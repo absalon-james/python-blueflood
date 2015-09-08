@@ -118,6 +118,14 @@ class Blueflood(object):
             params['points'] = points
         return params
 
+    def invalidate_token(self):
+        """
+        Unsets the token.
+
+        """
+        self.logger.debug("Invalidating token")
+        self._token = None
+
     def get_token(self):
         """
         Returns the current token if exists. Gets a new one otherwise.
@@ -208,6 +216,11 @@ class Blueflood(object):
     def request(self, url, method='get', data=None, headers=None, params=None):
         """
         Base request method.
+        Get a token if it doesn't exist
+        Make a request.
+        Check for 401.
+        Reauth one time if needed.
+        Return object if one is provided.
 
         @param url - String url
         @param method - String should be one of (get, post, put, delete)
@@ -217,35 +230,52 @@ class Blueflood(object):
         @return - JSON object
 
         """
-        self.logger.debug("Request method: %s" % method)
-        self.logger.debug("Request url: %s" % url)
-        self.logger.debug("Headers:\n%s" % pprint.pformat(headers))
-        self.logger.debug("Params:\n%s" % pprint.pformat(params))
-        self.logger.debug("Data: \n%s" % pprint.pformat(data))
         func = getattr(requests, method)
-        kwargs = {}
+        _headers = copy.copy(self.base_headers)
+        _headers.update({
+            'X-Auth-Token': self.get_token()
+        })
+
+        kwargs = {'headers': _headers}
+
         if params is not None:
             kwargs['params'] = params
         if headers is not None:
-            kwargs['headers'] = headers
+            kwargs['headers'].update(headers)
         if data is not None:
             kwargs['data'] = json.dumps(data)
+
+        self.logger.debug("Request method: %s" % method)
+        self.logger.debug("Request url: %s" % url)
+        self.logger.debug("Params:\n%s" % pprint.pformat(params))
+        self.logger.debug("Headers:\n%s" % pprint.pformat(headers))
+        self.logger.debug("Data: \n%s" % pprint.pformat(data))
+
         resp = func(url, **kwargs)
+        if resp.status_code == 401:
+            self.invalidate_token()
+            kwargs['headers']['X-Auth-Token'] = self.get_token()
+            resp = func(url, **kwargs)
+
         resp.raise_for_status()
-        resp_json = resp.json()
-        self.logger.debug("Response:\n%s" % pprint.pformat(resp_json))
-        return resp_json
+        try:
+            resp_json = resp.json()
+            self.logger.debug("Response:\n%s" % pprint.pformat(resp_json))
+            return resp_json
+        except ValueError:
+            pass
 
     def find_metrics(self, query='*'):
         """
+        Returns a list of metric names.
+
+        @param query - String metric name name query.
+        @return - List
+
         """
-        headers = copy.copy(self.base_headers)
-        headers.update({
-            'X-Auth-Token': self.get_token()
-        })
         params = {'query': query}
         url = "%s/%s" % (self.read_url(), 'metrics/search')
-        return self.request(url, method='get', params=params, headers=headers)
+        return self.request(url, method='get', params=params)
 
     def ingest(self, data):
         """
@@ -256,13 +286,8 @@ class Blueflood(object):
         if not isinstance(data, list):
             data = [data]
 
-        headers = copy.copy(self.base_headers)
-        headers.update({
-            'X-Auth-Token': self.get_token()
-        })
         url = '%s/ingest' % self.ingest_url()
-        r = requests.post(url, data=json.dumps(data), headers=headers)
-        r.raise_for_status()
+        return self.request(url, method='post', data=data)
 
     def get_metrics(self, start, stop, metrics,
                     points=None, resolution=None, **kwargs):
@@ -276,18 +301,10 @@ class Blueflood(object):
         @param kwargs - Remaining keyword arguments should be selectables.
         @return - Dictionary
         """
-        headers = copy.copy(self.base_headers)
-        headers.update({
-            'X-Auth-Token': self.get_token()
-        })
         url = '%s/views' % self.read_url()
         params = self.read_params(start, stop,
                                   points=points, resolution=resolution)
         selects = self.selects(**kwargs) if kwargs else None
         if selects:
             params['select'] = selects
-        r = requests.post(url, data=json.dumps(metrics),
-                          params=params, headers=headers)
-        print "Get metrics url: %s" % r.url
-        r.raise_for_status()
-        return r.json()
+        return self.request(url, method='post', params=params, data=metrics)
