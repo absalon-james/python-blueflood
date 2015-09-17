@@ -1,11 +1,11 @@
 from setuptools import setup
 
 setup(
-    name="blueflood",
+    name="bluefloodclient",
     version="0.0",
     author="james absalon",
     author_email="james.absalon@rackspace.com",
-    packages=['blueflood'],
-    package_data={'blueflood': ['blueflood/*']},
+    packages=['bluefloodclient'],
+    package_data={'bluefloodclient': ['bluefloodclient/*']},
     long_description="Python client for ingestion and reading of blueflood."
 )

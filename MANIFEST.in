@@ -1,2 +1,2 @@
-recursive-include tests blueflood
+recursive-include tests bluefloodclient
 include README.md
