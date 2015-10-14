@@ -66,7 +66,8 @@ class Blueflood(object):
     ]
 
     def __init__(self, auth_url=None, apikey=None,
-                 username=None, region='IAD'):
+                 username=None, region='IAD',
+                 ingest_url=None, read_url=None):
         """
         Inits the client.
 
@@ -77,11 +78,13 @@ class Blueflood(object):
 
         """
         self.auth_url = auth_url
+        self._read_url = read_url
+        self._ingest_url = ingest_url
         self.apikey = apikey
         self.username = username
         self._token = None
         self.read_service = None
-        self.write_service = None
+        self.ingest_service = None
         self.region = region
         self.get_token()
 
@@ -184,6 +187,8 @@ class Blueflood(object):
         @return String|None
 
         """
+        if self._read_url is not None:
+            return self._read_url
         if self.read_service is not None:
             return self.url_for_region(self.read_service, region)
         raise Exception("No read service found")
@@ -196,6 +201,8 @@ class Blueflood(object):
         @return String|None
 
         """
+        if self._ingest_url is not None:
+            return self._ingest_url
         if self.ingest_service is not None:
             return self.url_for_region(self.ingest_service, region)
         raise Exception("No ingest service found")
