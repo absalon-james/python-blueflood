@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="bluefloodclient",
-    version="0.01",
+    version="0.1.0",
     author="james absalon",
     author_email="james.absalon@rackspace.com",
     packages=['bluefloodclient'],
